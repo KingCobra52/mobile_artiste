@@ -12,7 +12,24 @@ signal is missing.
 """
 from datetime import date
 
+from decimal import Decimal
+from uuid import UUID
+
 from pydantic import BaseModel
+
+
+class Profile(BaseModel):
+    """The signed-in user's own account."""
+    # psycopg3 returns uuid columns as UUID objects, and Pydantic v2 won't coerce
+    # those to str. Declaring the real type is both correct and JSON-serialisable.
+    id: UUID
+    username: str | None
+    # bars is NUMERIC(12,2) in Postgres and arrives as Decimal. Kept as Decimal
+    # rather than float so a balance never picks up binary rounding error on the
+    # way out - this is the number phase 4 spends.
+    bars: Decimal
+    # From the JWT claims, not the profiles table: email belongs to auth.users
+    email: str | None
 
 
 class MarketArtist(BaseModel):

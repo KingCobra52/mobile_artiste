@@ -4,9 +4,8 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 /**
- * Market is the only tab for now. Portfolio and Leaderboard arrive in phase 5,
- * once auth exists to say whose portfolio it is - the shell is here so they're
- * a new trigger plus a new route directory rather than a restructure.
+ * Portfolio and Leaderboard arrive in phase 5 as further triggers plus their own
+ * route directories - no restructuring needed.
  */
 export default function AppTabs() {
   const scheme = useColorScheme();
@@ -20,6 +19,11 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="(market)">
         <NativeTabs.Trigger.Label>Market</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.line.uptrend.xyaxis" md="trending_up" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="(account)">
+        <NativeTabs.Trigger.Label>Account</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="person.crop.circle" md="account_circle" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

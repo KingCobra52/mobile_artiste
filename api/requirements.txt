@@ -8,6 +8,10 @@ psycopg-pool==3.3.1
 pydantic==2.13.4
 python-dotenv==1.2.2
 
+# Supabase signs tokens with ES256, so the [crypto] extra is required - plain
+# PyJWT can only do HMAC and would reject every token as an unsupported algorithm.
+PyJWT[crypto]==2.13.0
+
 # tests
 pytest==9.1.1
 httpx==0.28.1
