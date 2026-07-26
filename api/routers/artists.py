@@ -1,6 +1,7 @@
 """Read-only artist endpoints: the market list and a single artist's detail."""
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.auth import AuthenticatedUser, get_optional_user
 from api.db import get_db
 from api.models import ArtistDetail, MarketArtist
 from api.pricing import compute_price_per_share
@@ -63,9 +64,30 @@ def market(db=Depends(get_db)):
     return [dict(row, price_per_share=compute_price_per_share(row)) for row in rows]
 
 
+SHARES_OWNED_QUERY = """
+    SELECT COALESCE(SUM(shares), 0) AS total
+    FROM holdings WHERE user_id = %s AND artist_id = %s
+"""
+
+
 @router.get("/artists/{artist_id}", response_model=ArtistDetail)
-def artist(artist_id: int, db=Depends(get_db)):
+def artist(
+    artist_id: int,
+    user: AuthenticatedUser | None = Depends(get_optional_user),
+    db=Depends(get_db),
+):
     row = db.execute(ARTIST_QUERY, (artist_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Artist not found")
-    return dict(row, price_per_share=compute_price_per_share(row))
+
+    # Optional auth: the artist page is public, but a signed-in caller also gets
+    # their own position, which is what the sell control needs.
+    shares_owned = 0
+    if user is not None:
+        shares_owned = db.execute(SHARES_OWNED_QUERY, (user.id, artist_id)).fetchone()["total"]
+
+    return dict(
+        row,
+        price_per_share=compute_price_per_share(row),
+        shares_owned=shares_owned,
+    )

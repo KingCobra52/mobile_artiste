@@ -29,6 +29,16 @@ export type ArtistDetail = MarketArtist & {
   subscribers: number | null;
   recent_videos_avg_views: number | null;
   recent_videos_like_ratio: number | null;
+  /** 0 when not signed in. */
+  shares_owned: number;
+};
+
+export type TradeResult = {
+  /** NUMERIC in Postgres, serialised as a string to avoid float drift. */
+  bars: string;
+  shares_owned: number;
+  price_per_share: number;
+  total: number;
 };
 
 export type Profile = {
@@ -39,16 +49,41 @@ export type Profile = {
   email: string | null;
 };
 
-async function getJson<T>(path: string, token?: string): Promise<T> {
+/**
+ * Without this, a request that stalls rather than fails leaves the UI spinning
+ * with no way out - fetch has no default timeout. Long enough not to trip on a
+ * slow cold start, short enough that a wedged request surfaces as an error the
+ * user can retry.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function request<T>(
+  path: string,
+  { token, body }: { token?: string; body?: unknown } = {}
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      method: body === undefined ? 'GET' : 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch {
-    // fetch only rejects on network failure, which for this app almost always
-    // means the local API isn't running - worth saying so explicitly
+  } catch (err) {
+    // An abort means the request stalled; anything else means it never connected.
+    // Both need saying, because "nothing happened" is the worst error message.
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`The API didn't respond within ${REQUEST_TIMEOUT_MS / 1000}s. Try again.`);
+    }
     throw new Error(`Can't reach the API at ${API_BASE_URL}. Is it running?`);
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!response.ok) {
@@ -57,14 +92,27 @@ async function getJson<T>(path: string, token?: string): Promise<T> {
     if (response.status === 401) {
       throw new Error('Your session has expired. Sign in again.');
     }
-    throw new Error(`${path} returned ${response.status}`);
+    // Trading rejections carry a human-readable reason ("Not a sufficient amount
+    // of bars"); surface it rather than the status code.
+    const detail = await response
+      .json()
+      .then((body) => (typeof body?.detail === 'string' ? body.detail : null))
+      .catch(() => null);
+    throw new Error(detail ?? `${path} returned ${response.status}`);
   }
 
   return (await response.json()) as T;
 }
 
-export const fetchMarket = () => getJson<MarketArtist[]>('/market');
+export const fetchMarket = () => request<MarketArtist[]>('/market');
 
-export const fetchArtist = (id: number | string) => getJson<ArtistDetail>(`/artists/${id}`);
+export const fetchArtist = (id: number | string, token?: string) =>
+  request<ArtistDetail>(`/artists/${id}`, { token });
 
-export const fetchProfile = (token: string) => getJson<Profile>('/me', token);
+export const fetchProfile = (token: string) => request<Profile>('/me', { token });
+
+export const buyShares = (token: string, artistId: number, shares: number) =>
+  request<TradeResult>('/buy', { token, body: { artist_id: artistId, shares } });
+
+export const sellShares = (token: string, artistId: number, shares: number) =>
+  request<TradeResult>('/sell', { token, body: { artist_id: artistId, shares } });

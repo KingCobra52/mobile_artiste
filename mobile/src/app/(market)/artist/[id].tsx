@@ -6,15 +6,20 @@ import { ErrorState, LoadingState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TierBadge } from '@/components/tier-badge';
+import { TradePanel } from '@/components/trade-panel';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { fetchArtist } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 export default function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
 
-  // Stable across renders so useApi doesn't refetch on every one
-  const fetcher = useCallback(() => fetchArtist(id), [id]);
+  // The token is what makes the API fill in shares_owned; without it the endpoint
+  // still works and returns 0, which is correct for a signed-out viewer.
+  const token = session?.access_token;
+  const fetcher = useCallback(() => fetchArtist(id, token), [id, token]);
   const { data, error, loading, reload } = useApi(fetcher);
 
   if (loading && !data) return <LoadingState />;
@@ -40,6 +45,13 @@ export default function ArtistScreen() {
             bars per share
           </ThemedText>
         </View>
+
+        <TradePanel
+          artistId={data.id}
+          pricePerShare={data.price_per_share}
+          sharesOwned={data.shares_owned}
+          onTraded={reload}
+        />
 
         <Section title="Last.fm">
           <Stat label="Monthly listeners" value={data.listeners} />

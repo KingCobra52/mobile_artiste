@@ -29,6 +29,15 @@ pool = ConnectionPool(
     max_size=10,
     open=False,
     kwargs={"row_factory": dict_row},
+    # Supabase's pooler closes connections that have been idle for a while, and a
+    # pool without this hands the dead one to the next request - which surfaces as
+    # "server closed the connection unexpectedly" on the first call after a quiet
+    # period. check_connection tests each connection on checkout and transparently
+    # replaces it if it's gone. Costs a round trip per request; worth it on an
+    # endpoint that moves balances.
+    check=ConnectionPool.check_connection,
+    # Belt and braces: retire connections before the pooler decides to.
+    max_idle=120.0,
 )
 
 

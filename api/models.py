@@ -11,11 +11,34 @@ price_per_share is never null: compute_price_per_share() returns 0.0 when every
 signal is missing.
 """
 from datetime import date
-
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class TradeRequest(BaseModel):
+    """
+    A buy or sell order.
+
+    Replaces parse_shares() (artistev0/app.py:59-68). gt=0 rejects zero, negative,
+    and non-numeric share counts at the schema boundary - negative shares were a
+    real infinite-money exploit, since they made total_cost negative and credited
+    the account instead of charging it.
+
+    Note there is no user_id and no price: identity comes from the verified JWT and
+    the price is recomputed server-side, so neither is client-controllable.
+    """
+    artist_id: int
+    shares: int = Field(gt=0)
+
+
+class TradeResult(BaseModel):
+    """What changed, so the UI can update without refetching."""
+    bars: Decimal
+    shares_owned: int
+    price_per_share: float
+    total: float
 
 
 class Profile(BaseModel):
@@ -55,3 +78,6 @@ class ArtistDetail(BaseModel):
     recent_videos_avg_views: int | None
     recent_videos_like_ratio: float | None
     price_per_share: float
+    # 0 for anonymous callers. The sell UI needs this to know what can be sold,
+    # which is why it landed here in phase 4 rather than phase 5 as planned.
+    shares_owned: int = 0
