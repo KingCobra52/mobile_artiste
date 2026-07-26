@@ -1,0 +1,13 @@
+# Extras are written by hand because pip freeze drops them: without [binary]
+# psycopg tries to build against a local libpq, and without [standard] uvicorn
+# loses --reload's file watching.
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
+pydantic==2.13.4
+python-dotenv==1.2.2
+
+# tests
+pytest==9.1.1
+httpx==0.28.1
