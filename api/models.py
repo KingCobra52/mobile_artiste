@@ -94,6 +94,12 @@ class Profile(BaseModel):
     email: str | None
 
 
+class PricePoint(BaseModel):
+    """One day of an artist's price history."""
+    date: date
+    price: float
+
+
 class MarketArtist(BaseModel):
     """One row of the market list."""
     id: int

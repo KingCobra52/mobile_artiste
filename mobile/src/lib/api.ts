@@ -33,6 +33,12 @@ export type ArtistDetail = MarketArtist & {
   shares_owned: number;
 };
 
+export type PricePoint = {
+  /** ISO date, e.g. "2026-07-26". */
+  date: string;
+  price: number;
+};
+
 export type PortfolioHolding = {
   holding_id: number;
   artist_id: number;
@@ -138,6 +144,9 @@ export const fetchMarket = () => request<MarketArtist[]>('/market');
 
 export const fetchArtist = (id: number | string, token?: string) =>
   request<ArtistDetail>(`/artists/${id}`, { token });
+
+export const fetchArtistHistory = (id: number | string) =>
+  request<PricePoint[]>(`/artists/${id}/history`);
 
 export const fetchProfile = (token: string) => request<Profile>('/me', { token });
 

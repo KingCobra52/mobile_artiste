@@ -69,7 +69,8 @@ def main() -> None:
             # existing divisor is safer than emitting a broken block.
             print(f"    # {name}: no data available - keeping the current divisor")
             continue
-        print(f'    "{name}": ({weight}, math.log1p({float(value)!r})),')
+        # Raw median, not log1p of it - compute_price_per_share takes the log
+        print(f'    "{name}": ({weight}, {float(value)!r}),')
     print("}")
 
 

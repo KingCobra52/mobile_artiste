@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { PriceChart } from '@/components/price-chart';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,7 +10,7 @@ import { TierBadge } from '@/components/tier-badge';
 import { TradePanel } from '@/components/trade-panel';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
-import { fetchArtist } from '@/lib/api';
+import { fetchArtist, fetchArtistHistory } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
 export default function ArtistScreen() {
@@ -21,6 +22,11 @@ export default function ArtistScreen() {
   const token = session?.access_token;
   const fetcher = useCallback(() => fetchArtist(id, token), [id, token]);
   const { data, error, loading, reload } = useApi(fetcher);
+
+  // Separate from the detail fetch: history doesn't change when you trade, so a
+  // buy shouldn't refetch 35 days of prices to redraw the same line.
+  const historyFetcher = useCallback(() => fetchArtistHistory(id), [id]);
+  const { data: history } = useApi(historyFetcher);
 
   if (loading && !data) return <LoadingState />;
   if (error && !data) return <ErrorState error={error} onRetry={reload} />;
@@ -45,6 +51,8 @@ export default function ArtistScreen() {
             bars per share
           </ThemedText>
         </View>
+
+        {history ? <PriceChart points={history} /> : null}
 
         <TradePanel
           artistId={data.id}
