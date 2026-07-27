@@ -64,6 +64,54 @@ def test_price_tracks_relative_change():
     assert ratio > 1.009
 
 
+def test_baseline_is_frozen():
+    """
+    Golden values. If this fails you have refreshed the baseline from the roster
+    median, which is the one thing these numbers must never do.
+
+    Refreshing reprices every open position (holdings.price_per_share is a cost
+    basis frozen at purchase) and erases market-wide growth, while changing
+    nothing about relative prices - the baseline only sets the price level.
+
+    If a rebase is genuinely intended, it is safe only when every
+    holdings.price_per_share is multiplied by the same factor in the same
+    transaction. See the comment above SIGNAL_WEIGHTS. Then update these values.
+    """
+    assert {name: baseline for name, (_w, baseline) in SIGNAL_WEIGHTS.items()} == {
+        "listeners": 1607645.5,
+        "playcount": 134880889.5,
+        "subscribers": 3310000.0,
+        "recent_videos_avg_views": 2126874.5,
+        "recent_videos_like_ratio": 32199.24,
+    }
+
+
+def test_baseline_only_moves_the_price_level():
+    """
+    The property the whole freeze rests on: changing the baseline multiplies every
+    artist's price by one constant, so it cannot change who is expensive.
+    """
+    small = {"listeners": 50_000, "playcount": 240_000}
+    large = {"listeners": 5_000_000, "playcount": 1_000_000_000}
+
+    shifted = {name: (w, b * 1.2) for name, (w, b) in SIGNAL_WEIGHTS.items()}
+
+    def price_under(signals, weights):
+        total = weight_total = 0.0
+        for name, (weight, baseline) in weights.items():
+            value = signals.get(name)
+            if value is None:
+                continue
+            total += weight * (math.log1p(value) - math.log1p(baseline))
+            weight_total += weight
+        return PRICE_SCALE * math.exp(SENSITIVITY * total / weight_total)
+
+    ratios = [
+        price_under(s, shifted) / price_under(s, SIGNAL_WEIGHTS) for s in (small, large)
+    ]
+    assert ratios[0] == pytest.approx(ratios[1], rel=1e-12)
+
+
 def test_bigger_artist_prices_higher():
     small = {"listeners": 50_000, "playcount": 240_000}
     large = {"listeners": 5_000_000, "playcount": 1_000_000_000}

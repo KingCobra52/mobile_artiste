@@ -34,13 +34,40 @@ PRICE_SCALE = 50
 SENSITIVITY = 0.5
 
 # weight: relative importance, chosen for now (not yet calibrated against real data)
-# typical: the roster median for this signal, the point that prices at PRICE_SCALE
+# baseline: a FIXED reference point, not a live median. An artist sitting exactly
+#           on these figures prices at PRICE_SCALE. Raw values, not logs - the
+#           pricing function takes log1p itself.
 #
-# Recalibrated 2026-07-26 via api/scripts/calibrate_pricing.py. These are raw
-# values, not logs - the pricing function takes log1p itself.
+# DO NOT REFRESH THESE FROM THE CURRENT ROSTER. They were seeded from the roster
+# median on 2026-07-26 and are frozen there deliberately. Three reasons:
+#
+# 1. They cannot improve the market. The baseline term factors out of the formula
+#    as a global constant - price_i = [PRICE_SCALE * exp(-k*C)] * exp(k*A_i) - so
+#    it only sets the price LEVEL and has no effect on relative prices. Measured:
+#    a 20% move in the listeners baseline shifted every artist by exactly
+#    -3.5807%, with 0.000000 percentage points of variation.
+#
+# 2. Refreshing erases market-wide growth. A median grows with the roster, so if
+#    every artist's signals rise 10% and the baseline is then refreshed, every
+#    price returns to exactly where it started. The market could only ever express
+#    relative performance: if everyone doubles, nobody gains.
+#
+# 3. Refreshing reprices open positions. The 2026-07-26 refresh moved every artist
+#    -1.88%. holdings.price_per_share is a cost basis frozen at purchase, so a
+#    level shift hands every holder a gain or loss they did not earn.
+#
+# If the level ever genuinely needs rebasing - years of growth leaving everything
+# far from PRICE_SCALE - it can be done without harming anyone, and that follows
+# from point 1. A baseline change multiplies every price by the same constant f,
+# so multiplying every holdings.price_per_share by that same f in the SAME
+# transaction leaves every position's gain and loss exactly unchanged. Do it that
+# way or not at all.
+#
+# api/scripts/calibrate_pricing.py reports how far the roster has drifted from
+# these. It is diagnostic; it deliberately emits nothing to paste back here.
 SIGNAL_WEIGHTS = {
-    "listeners": (0.4, 1539763.0),
-    "playcount": (0.1, 109573276.0),
+    "listeners": (0.4, 1607645.5),
+    "playcount": (0.1, 134880889.5),
     "subscribers": (0.25, 3310000.0),
     "recent_videos_avg_views": (0.2, 2126874.5),
     "recent_videos_like_ratio": (0.05, 32199.24),
@@ -55,13 +82,13 @@ def compute_price_per_share(signals):
     """
     weighted_sum = 0.0
     weight_total = 0.0
-    for name, (weight, typical) in SIGNAL_WEIGHTS.items():
+    for name, (weight, baseline) in SIGNAL_WEIGHTS.items():
         value = signals.get(name)
         if value is None:
             continue
         # log1p rather than log so a genuine zero is representable: it scores as
-        # -log1p(typical), far below par, rather than blowing up.
-        weighted_sum += weight * (math.log1p(value) - math.log1p(typical))
+        # -log1p(baseline), far below par, rather than blowing up.
+        weighted_sum += weight * (math.log1p(value) - math.log1p(baseline))
         weight_total += weight
     if weight_total == 0:
         return 0.0
