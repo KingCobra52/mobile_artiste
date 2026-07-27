@@ -1,0 +1,25 @@
+# Everything the Python side of this repo needs: the FastAPI service in api/ and
+# the collection pipelines in pipelines/.
+#
+# One file rather than one per component. They were separate while the pipelines
+# lived in their own repo, and keeping two lists here would mean two pins for
+# psycopg, python-dotenv and pytest - which is exactly how a repo ends up running
+# a different driver version in CI than on a laptop.
+#
+# Direct dependencies only; pip resolves the rest.
+
+# Shared
+psycopg[binary]==3.3.4
+python-dotenv==1.2.2
+requests==2.34.2
+
+# API
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+psycopg-pool==3.3.1
+pydantic==2.13.4
+PyJWT[crypto]==2.13.0
+
+# Tests
+pytest==9.1.1
+httpx==0.28.1

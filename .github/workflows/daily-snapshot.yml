@@ -1,0 +1,73 @@
+name: Daily snapshot
+
+# Collects one Last.fm + YouTube snapshot per artist per day, plus each artist's
+# top tracks.
+#
+# Lives here rather than in artistev0 since the pipelines moved into this repo. The
+# secrets it reads are repo-scoped, so they had to be set on KingCobra52/mobile_artiste
+# - having them on the old repo does nothing for this workflow.
+#
+# This exists because running it by hand missed 10 of 45 days between 2026-06-12
+# and 2026-07-26 - a 22% miss rate, six of them weekends. Neither API can be
+# queried for a past date, so every missed day is a permanent hole in the price
+# history, and gaps also flatten the momentum term in api/pricing.py: growth
+# resolves its lookback by calendar date, so a gap makes two consecutive days
+# measure from the same start row and the price stops moving.
+
+on:
+  schedule:
+    # 09:17 UTC = 05:17 America/New_York. Two deliberate choices:
+    #
+    # The hour: the pipeline stamps rows with date.today(), and the runner clock
+    # is UTC, so the recorded date is the UTC date. At 09:17 UTC it is still the
+    # same calendar day on the US east coast, which keeps new rows aligned with
+    # the 35 days already collected on local dates. Scheduling at, say, 01:00 UTC
+    # would be 21:00 the previous evening locally and would shift every future
+    # date forward by one.
+    #
+    # The minute: GitHub delays scheduled jobs when the queue is busy, and the
+    # top of the hour is the busiest minute there is.
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+# A manual run started while the scheduled one is going would be harmless - the
+# pipeline is idempotent per date - but there is no reason to pay for both.
+concurrency:
+  group: daily-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    # The job is 24 Last.fm calls and ~72 YouTube calls and finishes in a couple
+    # of minutes. This only ever trips on a hang.
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # One requirements.txt at the root covers both api/ and pipelines/ now.
+      - run: pip install -r requirements.txt
+
+      # Run from the repo root, which is what lets pipeline.py resolve
+      # `from pipelines.yt_pipeline`.
+      #
+      # No .env on the runner. load_dotenv() finds nothing, returns quietly, and
+      # os.getenv reads the secrets below instead - so the same script works both
+      # ways with no branch for CI.
+      #
+      # The pipeline exits non-zero if any artist failed, which is what makes this
+      # step able to go red. Without that it caught every error and reported
+      # success, so a run that recorded nothing would have looked identical to a
+      # clean one and this workflow would have been decorative.
+      - name: Collect snapshots
+        run: python pipelines/pipeline.py
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
