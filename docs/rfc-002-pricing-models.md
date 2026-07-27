@@ -8,10 +8,9 @@ below. What it does is write down what the data actually supports, which candida
 are worth testing, and what evidence would settle each — so the work happens against
 measurements rather than intuition.
 
-Companion PRs: [collect Last.fm top tracks](https://github.com/KingCobra52/artiste/pull/4)
-starts banking a signal we don't have, and the
-[backtest harness](https://github.com/KingCobra52/mobile_artiste/pull/1) is how any
-candidate here gets scored.
+Both things this depends on are already in place. `lastfm_track_snapshots` has been
+collecting since 2026-07-27, and `api/scripts/backtest.py` is how any candidate here
+gets scored. What is missing is time.
 
 ---
 
@@ -72,25 +71,35 @@ being scored through the harness.
 
 ### 3a. Catalogue concentration — most promising
 
-From `lastfm_track_snapshots` (PR #4). The share of an artist's listening sitting in
-their biggest track:
+From `lastfm_track_snapshots`, collecting since 2026-07-27. The share of an artist's
+listening sitting in their biggest track:
 
 ```
 concentration = top_track_listeners / sum(top_10_track_listeners)
 ```
 
-A ratio, so it is bounded, and it genuinely falls when a catalogue broadens.
-Measured today it already separates the roster:
+A ratio, so it is bounded, and it genuinely falls when a catalogue broadens. The
+first day of collection already separates the roster:
 
-| artist | #1 | #2 | ratio |
-| --- | --- | --- | --- |
-| Kendrick Lamar | 2,322,854 | 2,177,651 | 1.07× |
-| Kai Ca\$h | 31,200 | 9,151 | 3.41× |
+| artist | concentration |
+| --- | --- |
+| Kai Ca\$h | 0.575 |
+| JELEEL! | 0.402 |
+| Zeddy Will | 0.290 |
+| Kae | 0.245 |
+| 21 Savage | 0.140 |
+| Playboi Carti | 0.137 |
+| Kendrick Lamar | 0.124 |
 
-**Evidence needed:** roughly 60 days of `lastfm_track_snapshots`, so PR #4 must merge
-first. Then: does concentration move more than 0.0343%/day (the `listeners` bar)?
-Is it correlated with what's already priced, or genuinely new information? A signal
-that tracks `listeners` at 0.9 adds nothing but weight.
+Kai Ca\$h has one song holding 57% of its top-ten listening; Kendrick's biggest holds
+12%. Nothing currently priced can tell those two apart.
+
+**Evidence needed:** roughly 60 days, so around **2026-09-25**. A single day shows the
+spread exists; it says nothing about whether the number MOVES, which is the part that
+matters. Then two questions, either of which can sink it: does concentration change
+more than 0.0343%/day, the bar `listeners` sets? And is it correlated with what is
+already priced, or genuinely new? A signal tracking `listeners` at 0.9 adds weight and
+no information.
 
 ### 3b. Multi-window momentum
 
@@ -152,12 +161,20 @@ and to shipping momentum, and it will eventually expire.
 
 **Wait, and collect.** Specifically:
 
-1. Merge PR #4 so `lastfm_track_snapshots` starts filling. It changes no price.
-2. Let the scheduled pipeline run. The gap rate was 22% while runs were manual; with
-   collection automated the history should be clean from 2026-07-27 on, which also
-   raises daily price movement on its own — 31% of day-pairs currently resolve their
-   momentum lookback to the same row because of gaps.
-3. Revisit around 60 days of track history, and score 3a first through the harness.
+1. **Done.** Track collection started 2026-07-27 and runs daily with the rest of the
+   pipeline.
+2. **Let it run.** The gap rate was 22% while collection was manual, and the history
+   should be unbroken from 2026-07-27 on now that it is scheduled. That alone raises
+   daily price movement without touching a constant: 31% of day-pairs currently
+   resolve their momentum lookback to the same row purely because of gaps, and each
+   closed gap removes one.
+3. **Revisit around 2026-09-25**, roughly 60 days of track history, and score 3a
+   through `api/scripts/backtest.py` before it goes anywhere near `SIGNAL_WEIGHTS`.
+
+Worth separating from all of the above: `MOMENTUM` is already tunable today and does
+not need new data. Its current value was chosen against a figure that turned out to be
+wrong by 3x, so it is worth re-scoring through the harness on its own schedule rather
+than waiting on concentration.
 
 Nothing here argues for changing `api/pricing.py` now. The model is not obviously
 wrong; the data is thin, and one of four priced signals moves less than the market
