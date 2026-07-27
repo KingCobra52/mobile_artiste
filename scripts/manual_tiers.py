@@ -4,7 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-conn = psycopg.connect(os.getenv("DATABASE_URL"))
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
+
+conn = psycopg.connect(database_url)
 cursor = conn.cursor()
 
 established_a = ["Drake", "Travis Scott", "Future", "Kendrick Lamar", "J. Cole", "Lil Baby"]
