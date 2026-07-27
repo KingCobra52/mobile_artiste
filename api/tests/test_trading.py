@@ -5,93 +5,18 @@ The Flask originals used patch.object(app_module, "get_db"); FastAPI's
 dependency_overrides is the direct equivalent and also lets the tests skip real
 tokens by overriding get_current_user.
 
-The FakeDB below is simpler than the psycopg2 version because psycopg3's
-conn.execute() returns the cursor directly - there's no DBWrapper to imitate.
+FakeDB and the client fixture live in conftest.py, shared with the read-endpoint
+suites. Nothing below changed when they moved - these are the regression tests for
+a real infinite-money exploit, and their passing untouched is what proves the
+harness was generalised rather than reshaped to fit.
 """
-from unittest.mock import MagicMock
-
 import pytest
-from fastapi.testclient import TestClient
 
-from api.auth import AuthenticatedUser, get_current_user
-from api.db import get_db
-from api.main import app
-from api.pricing import SIGNAL_WEIGHTS, compute_price_per_share
+from api.pricing import SIGNAL_WEIGHTS
 
-USER_ID = "11111111-1111-1111-1111-111111111111"
-
-# An artist with real signals, so compute_price_per_share returns something > 0
-PRICED_SIGNALS = {
-    "listeners": 1_539_763.0,
-    "playcount": 109_573_276.0,
-    "subscribers": 3_310_000.0,
-    "recent_videos_avg_views": 2_126_874.5,
-    "recent_videos_like_ratio": 32_199.24,
-}
-PRICE = compute_price_per_share(PRICED_SIGNALS)
-
-
-class FakeDB:
-    """Routes the routers' queries to canned results by matching on SQL text."""
-
-    def __init__(self, signals=PRICED_SIGNALS, holdings=None, charge_succeeds=True):
-        self.signals = signals
-        self.holdings = holdings if holdings is not None else []
-        self.charge_succeeds = charge_succeeds
-        self.executed: list[tuple[str, tuple | None]] = []
-        self.committed = False
-        self.rolled_back = False
-
-    def execute(self, query, vars=None):
-        self.executed.append((query, vars))
-        cursor = MagicMock()
-
-        if "SET bars = bars -" in query:
-            cursor.fetchone.return_value = {"bars": 9000} if self.charge_succeeds else None
-        elif "SET bars = bars +" in query:
-            cursor.fetchone.return_value = {"bars": 11000}
-        elif "COALESCE(SUM(shares), 0)" in query:
-            cursor.fetchone.return_value = {"total": sum(h["shares"] for h in self.holdings)}
-        elif "FROM holdings" in query:
-            cursor.fetchall.return_value = self.holdings
-        elif "FROM artists" in query:
-            cursor.fetchone.return_value = self.signals
-        return cursor
-
-    def transaction(self):
-        # Mimics psycopg3's conn.transaction(): commit on clean exit, roll back if
-        # the block raises. The tests assert on which one happened.
-        db = self
-
-        class _Txn:
-            def __enter__(self):
-                return db
-
-            def __exit__(self, exc_type, exc, tb):
-                if exc_type is None:
-                    db.committed = True
-                else:
-                    db.rolled_back = True
-                return False
-
-        return _Txn()
-
-    def sql_matching(self, needle: str) -> list[tuple[str, tuple | None]]:
-        return [(q, v) for q, v in self.executed if needle in q]
-
-
-@pytest.fixture
-def client():
-    def _client(db: FakeDB, authenticated: bool = True):
-        app.dependency_overrides[get_db] = lambda: db
-        if authenticated:
-            app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
-                id=USER_ID, email="tester@example.com"
-            )
-        return TestClient(app)
-
-    yield _client
-    app.dependency_overrides.clear()
+# Plain import, not relative: api/tests has no __init__.py, so pytest prepends this
+# directory to sys.path and conftest is importable as a top-level module.
+from conftest import PRICE, PRICED_SIGNALS, USER_ID, FakeDB  # noqa: F401
 
 
 # --- share-count validation ---------------------------------------------------
