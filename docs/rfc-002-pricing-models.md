@@ -52,8 +52,8 @@ later "improves" momentum by adding subscribers to it.
 
 ## 2. What the market cannot currently express
 
-Every priced signal is cumulative or near-cumulative — `playcount`, `subscribers`,
-and (were it working) `total_views`. Cumulative quantities only rise. The level term
+Every priced signal is cumulative or near-cumulative — `playcount` and
+`subscribers` both only ever rise. The level term
 therefore drifts upward forever and says less about an artist each year: a decade-old
 catalogue outranks a current one indefinitely.
 
@@ -158,7 +158,6 @@ and to shipping momentum, and it will eventually expire.
    raises daily price movement on its own — 31% of day-pairs currently resolve their
    momentum lookback to the same row because of gaps.
 3. Revisit around 60 days of track history, and score 3a first through the harness.
-4. Separately and sooner: decide whether to null the contaminated `total_views` span.
 
 Nothing here argues for changing `api/pricing.py` now. The model is not obviously
 wrong; the data is thin, and one of four priced signals moves less than the market
