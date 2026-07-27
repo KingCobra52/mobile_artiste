@@ -4,8 +4,9 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 /**
- * Portfolio and Leaderboard arrive in phase 5 as further triggers plus their own
- * route directories - no restructuring needed.
+ * Each trigger maps to a route group with its own Stack, so pushing a detail
+ * screen inside one tab doesn't disturb the others. Keep app-tabs.web.tsx in
+ * sync - it declares the same set for web.
  */
 export default function AppTabs() {
   const scheme = useColorScheme();
@@ -19,6 +20,16 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="(market)">
         <NativeTabs.Trigger.Label>Market</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.line.uptrend.xyaxis" md="trending_up" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="(portfolio)">
+        <NativeTabs.Trigger.Label>Portfolio</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="briefcase" md="work" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="(leaderboard)">
+        <NativeTabs.Trigger.Label>Leaders</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="trophy" md="emoji_events" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="(account)">

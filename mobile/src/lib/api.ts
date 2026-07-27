@@ -33,6 +33,36 @@ export type ArtistDetail = MarketArtist & {
   shares_owned: number;
 };
 
+export type PortfolioHolding = {
+  holding_id: number;
+  artist_id: number;
+  name: string | null;
+  tier: string | null;
+  shares: number;
+  /** What this lot cost per share when bought. */
+  price_per_share: number;
+  bought_at: string | null;
+  current_price: number;
+  current_value: number;
+  gain_loss: number;
+};
+
+export type Portfolio = {
+  bars: string;
+  holdings_value: number;
+  total_gain_loss: number;
+  /** One entry per purchase lot, not per artist. */
+  holdings: PortfolioHolding[];
+};
+
+export type LeaderboardEntry = {
+  username: string | null;
+  bars: number;
+  holdings_value: number;
+  net_worth: number;
+  is_you: boolean;
+};
+
 export type TradeResult = {
   /** NUMERIC in Postgres, serialised as a string to avoid float drift. */
   bars: string;
@@ -110,6 +140,12 @@ export const fetchArtist = (id: number | string, token?: string) =>
   request<ArtistDetail>(`/artists/${id}`, { token });
 
 export const fetchProfile = (token: string) => request<Profile>('/me', { token });
+
+export const fetchPortfolio = (token: string) => request<Portfolio>('/portfolio', { token });
+
+/** Public, but pass the token so the caller's own row comes back flagged. */
+export const fetchLeaderboard = (token?: string) =>
+  request<LeaderboardEntry[]>('/leaderboard', { token });
 
 export const buyShares = (token: string, artistId: number, shares: number) =>
   request<TradeResult>('/buy', { token, body: { artist_id: artistId, shares } });

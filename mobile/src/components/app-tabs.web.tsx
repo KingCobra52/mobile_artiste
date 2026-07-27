@@ -25,8 +25,19 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="market" href="/" asChild>
+          {/* Each tab is a route group whose index resolves to "/", so the group
+              name is what disambiguates them - "/portfolio" would not resolve. */}
+          <TabTrigger name="market" href="/(market)" asChild>
             <TabButton>Market</TabButton>
+          </TabTrigger>
+          <TabTrigger name="portfolio" href="/(portfolio)" asChild>
+            <TabButton>Portfolio</TabButton>
+          </TabTrigger>
+          <TabTrigger name="leaderboard" href="/(leaderboard)" asChild>
+            <TabButton>Leaders</TabButton>
+          </TabTrigger>
+          <TabTrigger name="account" href="/(account)" asChild>
+            <TabButton>Account</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>

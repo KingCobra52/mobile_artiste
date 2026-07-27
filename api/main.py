@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.db import pool
-from api.routers import artists, me, trading
+from api.routers import artists, holdings, me, trading
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.add_middleware(
 app.include_router(artists.router)
 app.include_router(me.router)
 app.include_router(trading.router)
+app.include_router(holdings.router)
 
 
 @app.get("/health")

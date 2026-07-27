@@ -41,6 +41,45 @@ class TradeResult(BaseModel):
     total: float
 
 
+class PortfolioHolding(BaseModel):
+    """
+    One purchase lot, not one artist. Buying the same artist twice gives two rows,
+    each carrying the price paid at the time - which is what makes gain_loss per
+    row meaningful, and matches how the FIFO sell in phase 4 consumes them.
+    """
+    holding_id: int
+    artist_id: int
+    name: str | None
+    tier: str | None
+    shares: int
+    # What this lot cost per share when bought
+    price_per_share: float
+    bought_at: date | None
+    current_price: float
+    current_value: float
+    gain_loss: float
+
+    # Signals are selected for pricing but aren't part of the response
+    model_config = {"extra": "ignore"}
+
+
+class PortfolioResponse(BaseModel):
+    bars: Decimal
+    holdings_value: float
+    total_gain_loss: float
+    holdings: list[PortfolioHolding]
+
+
+class LeaderboardEntry(BaseModel):
+    username: str | None
+    bars: float
+    holdings_value: float
+    # Ranked on this. Flask ranked on holdings_value alone, which rewarded
+    # spending rather than performance.
+    net_worth: float
+    is_you: bool
+
+
 class Profile(BaseModel):
     """The signed-in user's own account."""
     # psycopg3 returns uuid columns as UUID objects, and Pydantic v2 won't coerce
