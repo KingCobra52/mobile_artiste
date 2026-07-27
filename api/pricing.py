@@ -25,7 +25,6 @@ import math
 
 # An artist sitting exactly on the baseline for every signal, with flat growth,
 # prices here. Every log difference is 0, exp(0) is 1.
-PRICE_SCALE = 50
 
 # How far apart artists sit. Modelled against the live roster:
 #
@@ -43,7 +42,7 @@ PRICE_SCALE = 50
 # 0.5%/day median needs 12.2 and 3.82e+37x. Daily movement is four orders of
 # magnitude smaller than the cross-artist spread in log space, and one constant
 # cannot separate them. MOMENTUM below is the knob that does.
-SENSITIVITY = 0.5
+
 
 # How hard price reacts to growth. This is the free knob: it moves day-to-day
 # feel without touching the spread, because growth and level are separate terms.
@@ -64,7 +63,7 @@ SENSITIVITY = 0.5
 # barely moves. The database currently holds 35 snapshots across 45 days. As the
 # pipeline settles into a daily rhythm every day advances the lookback and these
 # numbers rise on their own, without touching this constant.
-MOMENTUM = 30
+
 
 # Growth is measured over a trailing window, and the window is what creates daily
 # movement: each day it drops an old day and picks up a new one, so price moves
@@ -75,7 +74,6 @@ MOMENTUM = 30
 #
 # Counted in CALENDAR days, not in snapshots - see momentum_lookback_sql below.
 # Collection has gaps, so the two differ: 14 rows back is presently about 18 days.
-MOMENTUM_WINDOW_DAYS = 14
 
 # Growth deliberately reads only the Last.fm signals, for two separate reasons:
 #
@@ -92,10 +90,6 @@ MOMENTUM_WINDOW_DAYS = 14
 #
 # Weighted toward listeners for the same reason SIGNAL_WEIGHTS is: playcount is
 # cumulative, so its growth rate decays as the total grows and says less each year.
-MOMENTUM_WEIGHTS = {
-    "listeners": 0.8,
-    "playcount": 0.2,
-}
 
 # weight: relative importance, chosen for now (not yet calibrated against real data)
 # baseline: a FIXED reference point, not a live median. An artist sitting exactly
@@ -132,6 +126,17 @@ MOMENTUM_WEIGHTS = {
 #
 # api/scripts/calibrate_pricing.py reports how far the roster has drifted from
 # these. It is diagnostic; it deliberately emits nothing to paste back here.
+
+PRICE_SCALE = 50
+SENSITIVITY = 0.5
+MOMENTUM = 30
+MOMENTUM_WINDOW_DAYS = 14
+
+MOMENTUM_WEIGHTS = {
+    "listeners": 0.8,
+    "playcount": 0.2,
+}
+
 SIGNAL_WEIGHTS = {
     "listeners": (0.4, 1607645.5),
     "playcount": (0.1, 134880889.5),
