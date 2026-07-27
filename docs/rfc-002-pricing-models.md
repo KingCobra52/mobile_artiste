@@ -28,46 +28,12 @@ collected barely moves**. Median absolute daily change, per signal:
 | `listeners` | 0.0343% | 0.116% | 0.76% | yes, w=0.4 |
 | `playcount` | 0.0469% | 0.159% | 1.24% | yes, w=0.1 |
 | `subscribers` | **0.0000%** | 0.111% | 0.70% | yes, w=0.25 |
-| `total_views` | **0.0000%** | 98.2% | 135,863% | no |
 | `recent_videos_avg_views` | 0.1059% | 0.404% | 53.68% | yes, w=0.2 |
 
-Two of those numbers are findings, not noise.
+One of those numbers is a finding, not noise. (`total_views` is excluded from this
+RFC's candidates entirely — see the note in §6.)
 
-### 1a. `total_views` is unusable — do not price it
-
-It was the obvious candidate: already collected since 2026-06-30, never priced, so
-history is banked for free. It does not survive inspection.
-
-Kendrick Lamar's series:
-
-```
-2026-06-30      12,445,064,981     <- correct channel
-2026-07-02         344,025,662     <- a different channel
-2026-07-04       3,037,058,630     <- a third channel
-2026-07-11      12,569,854,151     <- correct again
-2026-07-12 .. 2026-07-27   unchanged, all 15 days
-```
-
-Two separate problems.
-
-**Before 07-11 it is contaminated**, and in a way the wrong-channel cleanup did not
-address. That cleanup nulled the 10 artists known to be on wrong channels — and it
-did so correctly and completely, `total_views` included (332 non-null rows for both
-`subscribers` and `total_views`, zero rows with one set and the other not). But
-Kendrick was never on that list; it had 22 days of comparable history and looked
-healthy. The series above shows the resolution was **unstable day to day** for
-artists nobody flagged. The bug was broader than "11 artists matched to squatters":
-handle resolution returned different channels on different days.
-
-**After 07-12 it is frozen.** Not slow — identical. YouTube's channel-level
-`viewCount` stops refreshing for large channels, so median daily change across all
-24 artists is 0.0000% and the p90 is 0.0000% too. Pricing it would add a constant.
-
-**Recommendation: leave `total_views` out of `SIGNAL_WEIGHTS`, and treat the
-pre-07-12 rows as suspect for any model.** Worth a follow-up to null the
-contaminated span the way the corrected artists' rows were nulled.
-
-### 1b. `subscribers` is rounded, and carries a quarter of the price weight
+### 1a. `subscribers` is rounded, and carries a quarter of the price weight
 
 YouTube publishes subscriber counts to three significant figures: Kendrick went
 20,200,000 → 20,300,000 with nothing in between. So `subscribers` cannot move less
@@ -158,10 +124,6 @@ would pull price back toward the level as a growth burst ages.
 history to contain several. **This is the candidate furthest from having evidence
 and should be considered last.**
 
-### 3e. Rejected: `total_views`
-
-See §1a. Contaminated before 2026-07-12, frozen after.
-
 ---
 
 ## 4. How any of this gets decided
@@ -199,5 +161,44 @@ and to shipping momentum, and it will eventually expire.
 4. Separately and sooner: decide whether to null the contaminated `total_views` span.
 
 Nothing here argues for changing `api/pricing.py` now. The model is not obviously
-wrong; the data is thin, and two of five priced signals move less than the market
+wrong; the data is thin, and one of four priced signals moves less than the market
 implies. Collecting is worth more than tuning until that changes.
+
+---
+
+## 6. Note: `total_views`, and a bug it exposed
+
+Not a candidate. It is a lifetime cumulative counter, so it can only rise, and it
+would tell the model roughly what `subscribers` already does — the correlation
+between the two in log space is 0.68. It is recorded here only because
+investigating it turned up a real defect, which is now fixed in the data.
+
+**The bug.** Between 2026-07-02 and 2026-07-10, `total_views` was not the channel's
+lifetime view count at all. It was being written as the **sum of the recent
+videos' views** — `recent_videos_avg_views × video_count`. The ratio of the two
+columns is *exactly* 50.0 on 87 of the 98 affected rows, and exactly 8.0 on the
+remainder, those being artists with only 8 recent uploads.
+
+It looked at first like the wrong-channel bug recurring, because the values swing
+by orders of magnitude across the window. It was not. `subscribers` holds a single
+distinct value across the entire period for every affected artist, which it could
+not do if the pipeline had been reading a different channel. The channel was right
+throughout; only this one column was wrong, so `subscribers` and the
+`recent_videos_*` columns from that window are sound and remain usable.
+
+126 rows across 14 artists have been nulled. Detection used two independent rules
+that agreed exactly: rows below 50% of the artist's current value, and rows inside
+the 07-02..07-10 window. Neither found anything the other missed.
+
+**After 2026-07-12 the column is also frozen** — identical for 15 consecutive days,
+0.0000% median daily change, because YouTube stops refreshing channel-level
+`viewCount` for large channels. So even the clean data would price as a constant.
+
+Two things worth carrying forward:
+
+- A signal being *collected* is not evidence it is *correct*. This column was
+  written for four weeks before anyone looked at it closely.
+- Cross-column consistency is the cheap check that caught it. A wrong channel moves
+  every column together; a wrong calculation moves one. That distinction is what
+  separated a code bug from a repeat of the wrong-channel incident, and it took one
+  query.
