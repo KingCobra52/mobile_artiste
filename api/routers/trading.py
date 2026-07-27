@@ -15,20 +15,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.auth import AuthenticatedUser, get_current_user
 from api.db import get_db
 from api.models import TradeRequest, TradeResult
-from api.pricing import compute_price_per_share
+from api.pricing import compute_price_per_share, momentum_lookback_sql
 
 router = APIRouter(tags=["trading"])
 
 # Only the signals, keyed by id - the price has to be recomputed server-side from
 # current data rather than trusted from the client, or shares can be bought at a
 # price the buyer chose.
-ARTIST_SIGNALS_QUERY = """
+ARTIST_SIGNALS_QUERY = f"""
     SELECT
         a.listeners, a.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
-        SELECT listeners, playcount FROM artist_snapshots
+        SELECT listeners, playcount, date FROM artist_snapshots
         WHERE artist_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) a ON true
@@ -38,6 +39,7 @@ ARTIST_SIGNALS_QUERY = """
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("artists.id", "a.date")}
     WHERE artists.id = %s
 """
 

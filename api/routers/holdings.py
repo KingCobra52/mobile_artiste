@@ -10,14 +10,14 @@ from fastapi import APIRouter, Depends
 from api.auth import AuthenticatedUser, get_current_user, get_optional_user
 from api.db import get_db
 from api.models import LeaderboardEntry, PortfolioHolding, PortfolioResponse
-from api.pricing import compute_price_per_share
+from api.pricing import compute_price_per_share, momentum_lookback_sql
 
 router = APIRouter(tags=["portfolio"])
 
 # One row per holding lot, not per artist: each purchase keeps its own buy price
 # and date, which is what makes per-lot gain/loss meaningful. Matches the Flask
 # portfolio table.
-PORTFOLIO_QUERY = """
+PORTFOLIO_QUERY = f"""
     SELECT
         artists.id AS artist_id,
         artists.name,
@@ -27,11 +27,12 @@ PORTFOLIO_QUERY = """
         holdings.price_per_share,
         holdings.bought_at,
         a.listeners, a.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM holdings
     JOIN artists ON artists.id = holdings.artist_id
     LEFT JOIN LATERAL (
-        SELECT listeners, playcount FROM artist_snapshots
+        SELECT listeners, playcount, date FROM artist_snapshots
         WHERE artist_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) a ON true
@@ -41,6 +42,7 @@ PORTFOLIO_QUERY = """
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("artists.id", "a.date")}
     WHERE holdings.user_id = %s
     ORDER BY artists.name, holdings.id
 """
@@ -49,14 +51,15 @@ PORTFOLIO_QUERY = """
 # the pricing loop run once per artist held rather than once per purchase.
 # profiles.bars comes along because the ranking is net worth, not holdings alone -
 # see the comment in leaderboard() below.
-LEADERBOARD_QUERY = """
+LEADERBOARD_QUERY = f"""
     SELECT
         profiles.id AS user_id,
         profiles.username,
         profiles.bars,
         h.shares,
         a.listeners, a.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM profiles
     LEFT JOIN (
         SELECT user_id, artist_id, SUM(shares) AS shares
@@ -64,7 +67,7 @@ LEADERBOARD_QUERY = """
         GROUP BY user_id, artist_id
     ) h ON h.user_id = profiles.id
     LEFT JOIN LATERAL (
-        SELECT listeners, playcount FROM artist_snapshots
+        SELECT listeners, playcount, date FROM artist_snapshots
         WHERE artist_snapshots.artist_id = h.artist_id
         ORDER BY date DESC LIMIT 1
     ) a ON true
@@ -74,6 +77,7 @@ LEADERBOARD_QUERY = """
         WHERE youtube_snapshots.artist_id = h.artist_id
         ORDER BY date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("h.artist_id", "a.date")}
 """
 
 BALANCE_QUERY = "SELECT bars FROM profiles WHERE id = %s"

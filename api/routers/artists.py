@@ -1,10 +1,17 @@
 """Read-only artist endpoints: the market list and a single artist's detail."""
+import math
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth import AuthenticatedUser, get_optional_user
 from api.db import get_db
 from api.models import ArtistDetail, MarketArtist, PricePoint
-from api.pricing import SIGNAL_WEIGHTS, compute_price_per_share
+from api.pricing import (
+    SIGNAL_WEIGHTS,
+    compute_momentum,
+    compute_price_per_share,
+    momentum_lookback_sql,
+)
 
 router = APIRouter(tags=["artists"])
 
@@ -13,11 +20,16 @@ router = APIRouter(tags=["artists"])
 # idx_youtube_snapshots_artist_date. LEFT rather than INNER so an artist with no
 # snapshot yet still appears, priced at 0.0, instead of silently vanishing from
 # the market - the Flask version used an inner JOIN and dropped them.
-MARKET_QUERY = """
+#
+# The third LATERAL comes from api.pricing so every query that prices an artist
+# joins the momentum window the same way. It must follow the `a` join, which it
+# references for the anchor date.
+MARKET_QUERY = f"""
     SELECT
         artists.id, artists.name, artists.tier,
         a.listeners, a.playcount, a.date,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
         SELECT listeners, playcount, date FROM artist_snapshots
@@ -30,16 +42,18 @@ MARKET_QUERY = """
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("artists.id", "a.date")}
     ORDER BY artists.name
 """
 
 # Keyed on id, not name: artists.name has no unique constraint, so the Flask
 # route's WHERE artists.name = %s could match more than one row.
-ARTIST_QUERY = """
+ARTIST_QUERY = f"""
     SELECT
         artists.id, artists.name, artists.tier,
         a.listeners, a.playcount, a.date,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
         SELECT listeners, playcount, date FROM artist_snapshots
@@ -52,6 +66,7 @@ ARTIST_QUERY = """
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("artists.id", "a.date")}
     WHERE artists.id = %s
 """
 
@@ -73,11 +88,12 @@ SHARES_OWNED_QUERY = """
 # recent as of that date. Same "latest wins" rule the live endpoints use, applied
 # as of a historical date rather than now - a plain join on equal dates would drop
 # most days, since the two pipelines don't record on identical schedules.
-HISTORY_QUERY = """
+HISTORY_QUERY = f"""
     SELECT
         s.date,
         s.listeners, s.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        p.past_listeners, p.past_playcount, p.past_days
     FROM artist_snapshots s
     LEFT JOIN LATERAL (
         SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
@@ -85,6 +101,7 @@ HISTORY_QUERY = """
         WHERE y.artist_id = s.artist_id AND y.date <= s.date
         ORDER BY y.date DESC LIMIT 1
     ) y ON true
+    {momentum_lookback_sql("s.artist_id", "s.date")}
     WHERE s.artist_id = %s
     ORDER BY s.date
 """
@@ -109,13 +126,27 @@ def artist(
     return dict(
         row,
         price_per_share=compute_price_per_share(row),
+        # Surfaced so the screen can say why the price moved. The same number the
+        # pricing formula uses, not a second calculation of it - expm1 only turns
+        # the log growth into the ratio the UI renders.
+        growth_14d=math.expm1(compute_momentum(row)),
         shares_owned=shares_owned,
     )
 
 
 def _coverage(row) -> tuple[bool, ...]:
-    """Which signals this row actually has. Two rows are only comparable if equal."""
-    return tuple(row[name] is not None for name in SIGNAL_WEIGHTS)
+    """
+    Which inputs this row actually has. Two rows are only comparable if equal.
+
+    Includes whether the momentum window has a start row, not just which signals
+    are present: the first 14 days of any history have no lookback and so score
+    zero growth, and splicing those onto the days that do draws a step where
+    nothing happened. Folding it in here means the walk-back below trims them
+    with no extra logic.
+    """
+    return tuple(row[name] is not None for name in SIGNAL_WEIGHTS) + (
+        row["past_days"] is not None,
+    )
 
 
 @router.get("/artists/{artist_id}/history", response_model=list[PricePoint])
@@ -137,6 +168,10 @@ def artist_history(artist_id: int, db=Depends(get_db)):
     2026-06-30, and the wrong-channel cleanup nulled ten artists' YouTube signals
     before 2026-07-26. Those artists have one comparable day today and gain one per
     pipeline run, so their charts fill in on their own.
+
+    Coverage also includes the momentum window: the first 14 days of any history
+    have nothing to measure growth against, and charting a zero-growth stretch
+    beside a real one would draw a step on the day the term switches on.
     """
     rows = db.execute(HISTORY_QUERY, (artist_id,)).fetchall()
     if not rows:

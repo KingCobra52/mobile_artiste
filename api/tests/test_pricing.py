@@ -8,7 +8,15 @@ import math
 
 import pytest
 
-from api.pricing import PRICE_SCALE, SENSITIVITY, SIGNAL_WEIGHTS, compute_price_per_share
+from api.pricing import (
+    MOMENTUM,
+    MOMENTUM_WINDOW_DAYS,
+    PRICE_SCALE,
+    SENSITIVITY,
+    SIGNAL_WEIGHTS,
+    compute_momentum,
+    compute_price_per_share,
+)
 
 # An artist sitting exactly on the roster median for every signal. Read straight
 # out of SIGNAL_WEIGHTS rather than hardcoded, so recalibrating can't silently
@@ -116,3 +124,107 @@ def test_bigger_artist_prices_higher():
     small = {"listeners": 50_000, "playcount": 240_000}
     large = {"listeners": 5_000_000, "playcount": 1_000_000_000}
     assert compute_price_per_share(large) > compute_price_per_share(small) * 5
+
+
+# --- momentum ---------------------------------------------------------------
+#
+# Every test above passes a dict with no lookback columns, so they all price at
+# zero growth. That is the point of the design: adding momentum changed no call
+# site and no existing expectation.
+
+
+def _with_growth(rate, days=MOMENTUM_WINDOW_DAYS):
+    """A row whose Last.fm signals grew by `rate` over `days`."""
+    return dict(
+        TYPICAL_SIGNALS,
+        past_listeners=TYPICAL_SIGNALS["listeners"] / (1 + rate),
+        past_playcount=TYPICAL_SIGNALS["playcount"] / (1 + rate),
+        past_days=days,
+    )
+
+
+@pytest.mark.parametrize("missing", ["past_days", "past_listeners", "past_playcount"])
+def test_momentum_is_zero_without_a_full_lookback(missing):
+    # A caller that didn't join the lookback, or an artist whose history is
+    # shorter than the window, must score no growth rather than guess at one.
+    row = _with_growth(0.05)
+    row[missing] = None
+    assert compute_momentum(row) == 0.0
+    assert compute_price_per_share(row) == pytest.approx(PRICE_SCALE, rel=1e-9)
+
+
+def test_momentum_is_exactly_zero_for_a_flat_artist():
+    # Not approximately zero: an artist who didn't move must not drift, or every
+    # price picks up noise from a term that should be silent.
+    flat = dict(
+        TYPICAL_SIGNALS,
+        past_listeners=TYPICAL_SIGNALS["listeners"],
+        past_playcount=TYPICAL_SIGNALS["playcount"],
+        past_days=MOMENTUM_WINDOW_DAYS,
+    )
+    assert compute_momentum(flat) == 0.0
+
+
+def test_momentum_normalizes_a_stale_lookback():
+    """
+    The lookback lands on the newest snapshot at or before the cutoff, so a gap in
+    collection makes it older than the window. Growth must be scaled back to the
+    window length: 5% over 28 days is half the momentum of 5% over 14, not the same.
+    """
+    over_window = compute_momentum(_with_growth(0.05, days=MOMENTUM_WINDOW_DAYS))
+    over_double = compute_momentum(_with_growth(0.05, days=2 * MOMENTUM_WINDOW_DAYS))
+    assert over_double == pytest.approx(over_window / 2, rel=1e-12)
+
+
+def test_momentum_ignores_the_frozen_baseline():
+    """
+    Momentum is a difference of two levels, so the baselines cancel. This pins the
+    v1.2 property: a rebase moves the price level and still cannot touch growth.
+    """
+    row = _with_growth(0.05)
+    before = compute_momentum(row)
+
+    original = dict(SIGNAL_WEIGHTS)
+    SIGNAL_WEIGHTS.update({name: (w, b * 1.2) for name, (w, b) in original.items()})
+    try:
+        assert compute_momentum(row) == before
+    finally:
+        SIGNAL_WEIGHTS.update(original)
+
+
+def test_momentum_ignores_youtube_signals():
+    # The two reasons growth reads Last.fm only: half the roster has no comparable
+    # YouTube history, and recent_videos_avg_views jumps 50%+ when a video drops.
+    row = _with_growth(0.05)
+    spiked = dict(row, recent_videos_avg_views=TYPICAL_SIGNALS["recent_videos_avg_views"] * 2)
+    assert compute_momentum(spiked) == compute_momentum(row)
+
+
+def test_growth_raises_price_over_a_flat_artist():
+    """
+    Golden value, so MOMENTUM and the window can't drift silently. A baseline
+    artist growing 5% over 14 days sits at 216.10 rather than PRICE_SCALE: every
+    level term is zero at the baseline, so the whole premium is momentum.
+    """
+    price = compute_price_per_share(_with_growth(0.05))
+    assert price == pytest.approx(216.09695697, rel=1e-9)
+    assert price > PRICE_SCALE
+
+
+def test_growth_premium_matches_the_closed_form():
+    """
+    Separate from the golden above because the tolerance means something different.
+    Growth of exactly 5% should lift price by exp(MOMENTUM * ln(1.05)), and it does
+    to within 7.5e-7 - the residual is log1p vs log at signal magnitudes in the
+    millions, not an error. Loose enough to be about the formula rather than that gap.
+    """
+    price = compute_price_per_share(_with_growth(0.05))
+    assert price == pytest.approx(PRICE_SCALE * math.exp(MOMENTUM * math.log(1.05)), rel=1e-5)
+
+
+def test_no_signals_stays_zero_even_with_growth():
+    # The untradeable guard runs ahead of momentum: an artist with no price basis
+    # must stay at 0.0, not be lifted off the floor by a growth term.
+    row = {name: None for name in SIGNAL_WEIGHTS}
+    row.update(past_listeners=1_000_000, past_playcount=1_000_000, past_days=14)
+    assert compute_price_per_share(row) == 0.0

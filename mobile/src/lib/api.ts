@@ -29,6 +29,13 @@ export type ArtistDetail = MarketArtist & {
   subscribers: number | null;
   recent_videos_avg_views: number | null;
   recent_videos_like_ratio: number | null;
+  /**
+   * Trailing 14-day growth in the artist's Last.fm signals, as a ratio
+   * (0.0178 = +1.78%). This is what the price's momentum term is built from, so
+   * it explains which way the price is being pushed. 0 when the artist's history
+   * is shorter than the window.
+   */
+  growth_14d: number;
   /** 0 when not signed in. */
   shares_owned: number;
 };

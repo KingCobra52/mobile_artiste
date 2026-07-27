@@ -123,6 +123,11 @@ class ArtistDetail(BaseModel):
     recent_videos_avg_views: int | None
     recent_videos_like_ratio: float | None
     price_per_share: float
+    # The trailing 14-day growth the price's momentum term is built from, as a
+    # ratio (0.0178 = +1.78%) rather than the log the formula works in. Same
+    # quantity, expressed the way it gets displayed. 0.0 when the artist's history
+    # is shorter than the window.
+    growth_14d: float = 0.0
     # 0 for anonymous callers. The sell UI needs this to know what can be sold,
     # which is why it landed here in phase 4 rather than phase 5 as planned.
     shares_owned: int = 0

@@ -10,8 +10,10 @@ import { TierBadge } from '@/components/tier-badge';
 import { TradePanel } from '@/components/trade-panel';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchArtist, fetchArtistHistory } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { FLAT_RATIO, toneFor } from '@/lib/gain-loss';
 
 export default function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,9 +49,12 @@ export default function ArtistScreen() {
 
         <View style={styles.priceBlock}>
           <ThemedText type="title">{data.price_per_share.toFixed(2)}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            bars per share
-          </ThemedText>
+          <View style={styles.priceMeta}>
+            <ThemedText type="small" themeColor="textSecondary">
+              bars per share
+            </ThemedText>
+            <GrowthLabel growth={data.growth_14d} />
+          </View>
         </View>
 
         {history ? <PriceChart points={history} /> : null}
@@ -90,6 +95,33 @@ export default function ArtistScreen() {
   );
 }
 
+/**
+ * The 14-day growth driving the price's momentum term.
+ *
+ * Shown next to the price because otherwise the chart moves for reasons nothing
+ * on the screen explains - the underlying signals shift by hundredths of a
+ * percent a day, so the visible movement comes almost entirely from this.
+ * Rendered as "-" rather than 0.00% when the artist's history is shorter than
+ * the window, since no growth measured is not the same as no growth.
+ */
+function GrowthLabel({ growth }: { growth: number }) {
+  const theme = useTheme();
+  if (growth === 0) {
+    return (
+      <ThemedText type="small" themeColor="textSecondary">
+        14d —
+      </ThemedText>
+    );
+  }
+  const percent = growth * 100;
+  return (
+    <ThemedText type="small" style={{ color: toneFor(growth, FLAT_RATIO, theme.textSecondary) }}>
+      14d {percent > 0 ? '+' : ''}
+      {percent.toFixed(2)}%
+    </ThemedText>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
@@ -127,6 +159,11 @@ const styles = StyleSheet.create({
   },
   priceBlock: {
     gap: Spacing.one,
+  },
+  priceMeta: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
   },
   section: {
     gap: Spacing.two,

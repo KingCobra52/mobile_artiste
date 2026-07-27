@@ -10,9 +10,7 @@ import { useApi } from '@/hooks/use-api';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchPortfolio, type PortfolioHolding } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-
-const GAIN = '#34d399';
-const LOSS = '#ef4444';
+import { FLAT_BARS, toneFor } from '@/lib/gain-loss';
 
 export default function PortfolioScreen() {
   const { session, loading: authLoading } = useAuth();
@@ -56,7 +54,7 @@ function SignedInPortfolio({ token }: { token: string }) {
             <Summary
               label="Unrealised"
               value={formatSigned(data.total_gain_loss)}
-              color={toneFor(data.total_gain_loss, theme)}
+              color={toneFor(data.total_gain_loss, FLAT_BARS, theme.textSecondary)}
             />
           </View>
         }
@@ -93,7 +91,10 @@ function HoldingRow({ holding }: { holding: PortfolioHolding }) {
       <Pressable style={styles.row}>
         <View style={styles.rowHeader}>
           <ThemedText type="default">{holding.name}</ThemedText>
-          <ThemedText type="smallBold" style={{ color: toneFor(holding.gain_loss, theme) }}>
+          <ThemedText
+            type="smallBold"
+            style={{ color: toneFor(holding.gain_loss, FLAT_BARS, theme.textSecondary) }}
+          >
             {formatSigned(holding.gain_loss)}
           </ThemedText>
         </View>
@@ -112,19 +113,9 @@ function HoldingRow({ holding }: { holding: PortfolioHolding }) {
   );
 }
 
-/** Below this, a gain is rounding noise rather than a real move. */
-const FLAT = 0.005;
-
 function formatSigned(value: number) {
-  // Without the flat band, a lot bought at the current price renders as "-0.00"
-  // in red - a tiny negative float presented to the user as a loss.
-  if (Math.abs(value) < FLAT) return '0.00';
+  if (Math.abs(value) < FLAT_BARS) return '0.00';
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}`;
-}
-
-function toneFor(value: number, theme: { textSecondary: string }) {
-  if (Math.abs(value) < FLAT) return theme.textSecondary;
-  return value > 0 ? GAIN : LOSS;
 }
 
 const styles = StyleSheet.create({
