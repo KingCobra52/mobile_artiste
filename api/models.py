@@ -18,17 +18,7 @@ from pydantic import BaseModel, Field
 
 
 class TradeRequest(BaseModel):
-    """
-    A buy or sell order.
-
-    Replaces parse_shares() (artistev0/app.py:59-68). gt=0 rejects zero, negative,
-    and non-numeric share counts at the schema boundary - negative shares were a
-    real infinite-money exploit, since they made total_cost negative and credited
-    the account instead of charging it.
-
-    Note there is no user_id and no price: identity comes from the verified JWT and
-    the price is recomputed server-side, so neither is client-controllable.
-    """
+    """A buy or sell order. No user_id or price: those come from the JWT and server-side pricing."""
     artist_id: int
     shares: int = Field(gt=0)
 
@@ -42,11 +32,7 @@ class TradeResult(BaseModel):
 
 
 class PortfolioHolding(BaseModel):
-    """
-    One purchase lot, not one artist. Buying the same artist twice gives two rows,
-    each carrying the price paid at the time - which is what makes gain_loss per
-    row meaningful, and matches how the FIFO sell in phase 4 consumes them.
-    """
+    """One purchase lot, not one artist. Buying the same artist twice gives two rows."""
     holding_id: int
     artist_id: int
     name: str | None

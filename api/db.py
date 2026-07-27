@@ -42,12 +42,6 @@ pool = ConnectionPool(
 
 
 def get_db():
-    """
-    FastAPI dependency yielding a pooled connection for the life of one request.
-
-    Deliberately a sync generator: FastAPI runs sync dependencies in a threadpool,
-    which is what sync psycopg wants. pool.connection() commits on clean exit and
-    rolls back if the handler raises, then returns the connection to the pool.
-    """
+    """FastAPI dependency yielding a pooled connection for the life of one request."""
     with pool.connection() as conn:
         yield conn

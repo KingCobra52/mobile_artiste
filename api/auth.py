@@ -84,13 +84,7 @@ def get_current_user(
 def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AuthenticatedUser | None:
-    """
-    Identify the caller if a token is present, otherwise return None.
-
-    For endpoints that serve everyone but enrich the response when signed in -
-    phase 5 uses this to add shares_owned to the artist detail response.
-    A malformed token is still rejected: only its absence is tolerated.
-    """
+    """Identify the caller if a token is present, else None. A malformed token is still rejected."""
     if credentials is None:
         return None
     return _decode(credentials.credentials)

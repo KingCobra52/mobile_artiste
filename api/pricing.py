@@ -142,21 +142,7 @@ SIGNAL_WEIGHTS = {
 
 
 def momentum_lookback_sql(artist_id: str, anchor: str) -> str:
-    """
-    The LATERAL join that carries the start of the momentum window onto a row.
-
-    Every query that prices an artist needs this, and they must all use the same
-    one - if a single query omits it that endpoint quietly prices without growth,
-    and /buy charging a different number than the screen displayed is the worst
-    version of that. Handing out the SQL from here is what keeps them in step.
-
-    artist_id and anchor are SQL expressions written by our own modules (the
-    routers pass literals like "artists.id"), never user input.
-
-    Anchored on the artist's own latest snapshot date rather than CURRENT_DATE:
-    if the pipeline stalls, growth should keep describing the last 14 days of real
-    data instead of silently decaying toward zero as the gap widens.
-    """
+    """LATERAL join carrying the start of the momentum window onto a row. Every pricing query must use this same SQL, or it prices without growth."""
     return f"""
     LEFT JOIN LATERAL (
         SELECT listeners AS past_listeners, playcount AS past_playcount,
@@ -180,20 +166,7 @@ def _momentum_level(listeners, playcount):
 
 
 def compute_momentum(signals):
-    """
-    Trailing growth, normalized to a MOMENTUM_WINDOW_DAYS-long window.
-
-    Reads past_listeners, past_playcount and past_days - the columns
-    momentum_lookback_sql() adds - off the same row as the current signals.
-    Returns 0.0 when any of them is absent, which is the right answer for an
-    artist whose history is shorter than the window and for any caller that
-    didn't join the lookback at all.
-
-    Normalizing by past_days rather than assuming the window is exactly 14 days
-    matters because the lookback lands on the latest snapshot at or before the
-    cutoff: a gap in collection makes that row 16 or 20 days old, and 20 days of
-    growth reported as 14 days' worth would read as a rally that never happened.
-    """
+    """Trailing growth normalized to a MOMENTUM_WINDOW_DAYS window. Returns 0.0 if past_listeners/past_playcount/past_days (from momentum_lookback_sql) are missing."""
     past_days = signals.get("past_days")
     if not past_days:
         return 0.0
@@ -205,15 +178,7 @@ def compute_momentum(signals):
 
 
 def compute_price_per_share(signals):
-    """
-    signals: dict-like mapping of signal name -> raw value. Missing/None entries
-    are skipped and the remaining weights are renormalized, so price stays on a
-    consistent scale whether or not YouTube data is available for this artist.
-
-    Growth is read off the same dict rather than passed separately, so adding the
-    momentum term changed no call site. A row without the lookback columns scores
-    zero growth and prices exactly as it did before momentum existed.
-    """
+    """Weighted price from signals (name -> raw value). Missing entries are skipped and remaining weights renormalized; missing growth columns score zero growth."""
     weighted_sum = 0.0
     weight_total = 0.0
     for name, (weight, baseline) in SIGNAL_WEIGHTS.items():

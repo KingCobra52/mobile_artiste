@@ -135,15 +135,7 @@ def artist(
 
 
 def _coverage(row) -> tuple[bool, ...]:
-    """
-    Which inputs this row actually has. Two rows are only comparable if equal.
-
-    Includes whether the momentum window has a start row, not just which signals
-    are present: the first 14 days of any history have no lookback and so score
-    zero growth, and splicing those onto the days that do draws a step where
-    nothing happened. Folding it in here means the walk-back below trims them
-    with no extra logic.
-    """
+    """Which inputs this row has, for comparing coverage across rows. Includes whether the momentum window has a start row, not just raw signals."""
     return tuple(row[name] is not None for name in SIGNAL_WEIGHTS) + (
         row["past_days"] is not None,
     )
@@ -151,28 +143,7 @@ def _coverage(row) -> tuple[bool, ...]:
 
 @router.get("/artists/{artist_id}/history", response_model=list[PricePoint])
 def artist_history(artist_id: int, db=Depends(get_db)):
-    """
-    Price recomputed at each historical snapshot date, using today's formula and
-    divisors throughout - a reconstruction, not a record of what was displayed on
-    the day, since both were changed in v1.1.
-
-    Only the most recent run of dates sharing today's signal coverage is returned,
-    and that restriction is the point. Renormalization keeps a Last.fm-only price
-    and a full-signal price on the same scale, but it does not make them the same
-    measurement, so charting across a coverage change draws a cliff where nothing
-    happened. Kae is the worst case: 34 days of genuine +0.01 daily gains, then
-    -3.52 in a single day when its YouTube data first landed. A reader would see a
-    40% crash that never occurred.
-
-    Coverage changes because collection did. Last.fm began 2026-06-12, YouTube
-    2026-06-30, and the wrong-channel cleanup nulled ten artists' YouTube signals
-    before 2026-07-26. Those artists have one comparable day today and gain one per
-    pipeline run, so their charts fill in on their own.
-
-    Coverage also includes the momentum window: the first 14 days of any history
-    have nothing to measure growth against, and charting a zero-growth stretch
-    beside a real one would draw a step on the day the term switches on.
-    """
+    """Price recomputed at each snapshot date with today's formula. Only returns the most recent run of dates sharing today's signal coverage, so a coverage change doesn't draw a false cliff."""
     rows = db.execute(HISTORY_QUERY, (artist_id,)).fetchall()
     if not rows:
         return []
