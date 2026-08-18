@@ -15,19 +15,6 @@ name: Daily snapshot
 # measure from the same start row and the price stops moving.
 
 on:
-  schedule:
-    # 09:17 UTC = 05:17 America/New_York. Two deliberate choices:
-    #
-    # The hour: the pipeline stamps rows with date.today(), and the runner clock
-    # is UTC, so the recorded date is the UTC date. At 09:17 UTC it is still the
-    # same calendar day on the US east coast, which keeps new rows aligned with
-    # the 35 days already collected on local dates. Scheduling at, say, 01:00 UTC
-    # would be 21:00 the previous evening locally and would shift every future
-    # date forward by one.
-    #
-    # The minute: GitHub delays scheduled jobs when the queue is busy, and the
-    # top of the hour is the busiest minute there is.
-    - cron: "17 9 * * *"
   workflow_dispatch:
 
 # A manual run started while the scheduled one is going would be harmless - the

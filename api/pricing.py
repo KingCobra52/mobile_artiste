@@ -142,7 +142,7 @@ SIGNAL_WEIGHTS = {
     "playcount": (0.1, 134880889.5),
     "subscribers": (0.25, 3310000.0),
     "recent_videos_avg_views": (0.2, 2126874.5),
-    "recent_videos_like_ratio": (0.05, 32199.24),
+    "recent_videos_avg_likes": (0.05, 32199.24),
 }
 
 

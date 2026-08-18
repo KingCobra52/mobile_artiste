@@ -8,7 +8,7 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.artiste.mobile"
     },
     "android": {
       "adaptiveIcon": {

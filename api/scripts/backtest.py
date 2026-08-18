@@ -63,13 +63,13 @@ HISTORY_QUERY = """
         ar.name,
         s.date,
         s.listeners, s.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_avg_likes,
         p.listeners AS past_listeners, p.playcount AS past_playcount,
         s.date - p.date AS past_days
     FROM artists ar
     JOIN artist_snapshots s ON s.artist_id = ar.id
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots y
         WHERE y.artist_id = ar.id AND y.date <= s.date
         ORDER BY y.date DESC LIMIT 1

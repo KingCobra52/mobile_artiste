@@ -271,7 +271,7 @@ def test_run_pipeline_writes_null_not_zero_when_no_videos(
     )
     params = snapshot_insert[0][1]
     assert params[3] is None, "recent_videos_avg_views must be NULL, not 0"
-    assert params[4] is None, "recent_videos_like_ratio must be NULL, not 0"
+    assert params[4] is None, "recent_videos_avg_likes must be NULL, not 0"
 
 
 @patch("pipelines.yt_pipeline.fetch_channel_stats")

@@ -61,7 +61,7 @@ cursor.execute("""
     subscribers INTEGER,
     total_views BIGINT,
     recent_videos_avg_views INTEGER,
-    recent_videos_like_ratio FLOAT, 
+    recent_videos_avg_likes FLOAT, 
     date DATE 
     )
 """)
@@ -110,7 +110,7 @@ cursor.execute("ALTER TABLE lastfm_track_snapshots ADD COLUMN IF NOT EXISTS mbid
 
 # Add columns if table already existed but lacked them
 cursor.execute("ALTER TABLE youtube_snapshots ADD COLUMN IF NOT EXISTS recent_videos_avg_views INTEGER;")
-cursor.execute("ALTER TABLE youtube_snapshots ADD COLUMN IF NOT EXISTS recent_videos_like_ratio FLOAT;")
+cursor.execute("ALTER TABLE youtube_snapshots ADD COLUMN IF NOT EXISTS recent_videos_avg_likes FLOAT;")
 # Handles are squattable and reassignable; channel ids are immutable. Keying the
 # YouTube pipeline on the handle silently matched 11 of 25 artists to strangers.
 cursor.execute("ALTER TABLE artists ADD COLUMN IF NOT EXISTS youtube_channel_id TEXT;")

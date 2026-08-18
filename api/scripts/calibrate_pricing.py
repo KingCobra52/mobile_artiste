@@ -34,8 +34,8 @@ MEDIAN_QUERY = """
         percentile_cont(0.5) WITHIN GROUP (ORDER BY y.subscribers) AS subscribers,
         percentile_cont(0.5) WITHIN GROUP (ORDER BY y.recent_videos_avg_views)
             AS recent_videos_avg_views,
-        percentile_cont(0.5) WITHIN GROUP (ORDER BY y.recent_videos_like_ratio)
-            AS recent_videos_like_ratio
+        percentile_cont(0.5) WITHIN GROUP (ORDER BY y.recent_videos_avg_likes)
+            AS recent_videos_avg_likes
     FROM artists
     LEFT JOIN LATERAL (
         SELECT listeners, playcount FROM artist_snapshots
@@ -43,7 +43,7 @@ MEDIAN_QUERY = """
         ORDER BY date DESC LIMIT 1
     ) a ON true
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1

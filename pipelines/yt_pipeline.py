@@ -294,12 +294,12 @@ def run_pipeline(conn, api_key, artists, num_videos=VIDEOS_STORED_PER_ARTIST):
                 recent_views_total = sum(stats["views"] for stats in video_stats.values())
                 recent_likes_total = sum(stats["likes"] for stats in video_stats.values())
                 recent_videos_avg_views = int(recent_views_total / video_count)
-                recent_videos_like_ratio = float(recent_likes_total / video_count)
+                recent_videos_avg_likes = float(recent_likes_total / video_count)
             else:
                 # NULL, not 0: compute_price_per_share renormalizes away a missing
                 # signal, but prices a literal 0 as "this artist's videos get no views"
                 recent_videos_avg_views = None
-                recent_videos_like_ratio = None
+                recent_videos_avg_likes = None
 
             cursor.execute(
                 "SELECT EXISTS(SELECT 1 FROM youtube_snapshots WHERE artist_id = %s AND date = %s)",
@@ -312,9 +312,9 @@ def run_pipeline(conn, api_key, artists, num_videos=VIDEOS_STORED_PER_ARTIST):
             else:
                 cursor.execute(
                     """INSERT INTO youtube_snapshots
-                       (artist_id, subscribers, total_views, recent_videos_avg_views, recent_videos_like_ratio, date)
+                       (artist_id, subscribers, total_views, recent_videos_avg_views, recent_videos_avg_likes, date)
                        VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (artist_id, subscribers, total_views, recent_videos_avg_views, recent_videos_like_ratio, today)
+                    (artist_id, subscribers, total_views, recent_videos_avg_views, recent_videos_avg_likes, today)
                 )
                 print(f"Added youtube snapshot for {artist} for {today}")
 

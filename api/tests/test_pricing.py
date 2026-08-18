@@ -90,7 +90,7 @@ def test_baseline_is_frozen():
         "playcount": 134880889.5,
         "subscribers": 3310000.0,
         "recent_videos_avg_views": 2126874.5,
-        "recent_videos_like_ratio": 32199.24,
+        "recent_videos_avg_likes": 32199.24,
     }
 
 

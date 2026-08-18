@@ -133,9 +133,9 @@ def test_history_drops_days_before_a_coverage_change(client):
     """
     rows = [
         history_row("2026-07-18", subscribers=None, recent_videos_avg_views=None,
-                    recent_videos_like_ratio=None),
+                    recent_videos_avg_likes=None),
         history_row("2026-07-19", subscribers=None, recent_videos_avg_views=None,
-                    recent_videos_like_ratio=None),
+                    recent_videos_avg_likes=None),
         history_row("2026-07-20"),
         history_row("2026-07-21"),
     ]

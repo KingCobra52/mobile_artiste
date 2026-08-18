@@ -31,16 +31,32 @@
     "react-native-worklets": "0.10.0"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "0.86.0",
+    "@testing-library/react-native": "13.3.3",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
+    "jest": "29.7.0",
+    "jest-expo": "57.0.2",
+    "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios --device \"iPhone 17\"",
+    "ios:clean": "expo run:ios --device \"iPhone 17\" --no-build-cache",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "watchman": false,
+    "moduleNameMapper": {
+      "\\.(css)$": "<rootDir>/test/style-mock.js",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   },
   "private": true
 }

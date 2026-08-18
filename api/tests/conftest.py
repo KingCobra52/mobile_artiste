@@ -29,13 +29,14 @@ OTHER_USER_ID = "22222222-2222-2222-2222-222222222222"
 # recent_videos_avg_views is a whole number because the column is an integer and
 # the pipeline writes int(total / count) - a fractional value here would model a
 # row Postgres cannot hold, and ArtistDetail rightly refuses to serialise it.
-# recent_videos_like_ratio is genuinely a ratio and stays a float.
+# recent_videos_avg_likes is a mean (likes summed then divided by video count),
+# not a whole-number count, so it stays a float.
 PRICED_SIGNALS = {
     "listeners": 1_539_763.0,
     "playcount": 109_573_276.0,
     "subscribers": 3_310_000.0,
     "recent_videos_avg_views": 2_126_874,
-    "recent_videos_like_ratio": 32_199.24,
+    "recent_videos_avg_likes": 32_199.24,
 }
 PRICE = compute_price_per_share(PRICED_SIGNALS)
 

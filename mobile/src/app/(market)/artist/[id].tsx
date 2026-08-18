@@ -76,7 +76,7 @@ export default function ArtistScreen() {
             <>
               <Stat label="Subscribers" value={data.subscribers} />
               <Stat label="Avg views, recent videos" value={data.recent_videos_avg_views} />
-              <Stat label="Avg likes, recent videos" value={data.recent_videos_like_ratio} />
+              <Stat label="Avg likes, recent videos" value={data.recent_videos_avg_likes} />
             </>
           ) : (
             <ThemedText type="small" themeColor="textSecondary">

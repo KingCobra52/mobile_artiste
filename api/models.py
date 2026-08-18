@@ -107,7 +107,7 @@ class ArtistDetail(BaseModel):
     date: date | None
     subscribers: int | None
     recent_videos_avg_views: int | None
-    recent_videos_like_ratio: float | None
+    recent_videos_avg_likes: float | None
     price_per_share: float
     # The trailing 14-day growth the price's momentum term is built from, as a
     # ratio (0.0178 = +1.78%) rather than the log the formula works in. Same

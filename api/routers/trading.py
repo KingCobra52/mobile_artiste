@@ -25,7 +25,7 @@ router = APIRouter(tags=["trading"])
 ARTIST_SIGNALS_QUERY = f"""
     SELECT
         a.listeners, a.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_avg_likes,
         p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
@@ -34,7 +34,7 @@ ARTIST_SIGNALS_QUERY = f"""
         ORDER BY date DESC LIMIT 1
     ) a ON true
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1

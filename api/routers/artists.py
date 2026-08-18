@@ -28,7 +28,7 @@ MARKET_QUERY = f"""
     SELECT
         artists.id, artists.name, artists.tier,
         a.listeners, a.playcount, a.date,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_avg_likes,
         p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
@@ -37,7 +37,7 @@ MARKET_QUERY = f"""
         ORDER BY date DESC LIMIT 1
     ) a ON true
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
@@ -52,7 +52,7 @@ ARTIST_QUERY = f"""
     SELECT
         artists.id, artists.name, artists.tier,
         a.listeners, a.playcount, a.date,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_avg_likes,
         p.past_listeners, p.past_playcount, p.past_days
     FROM artists
     LEFT JOIN LATERAL (
@@ -61,7 +61,7 @@ ARTIST_QUERY = f"""
         ORDER BY date DESC LIMIT 1
     ) a ON true
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots
         WHERE youtube_snapshots.artist_id = artists.id
         ORDER BY date DESC LIMIT 1
@@ -92,11 +92,11 @@ HISTORY_QUERY = f"""
     SELECT
         s.date,
         s.listeners, s.playcount,
-        y.subscribers, y.recent_videos_avg_views, y.recent_videos_like_ratio,
+        y.subscribers, y.recent_videos_avg_views, y.recent_videos_avg_likes,
         p.past_listeners, p.past_playcount, p.past_days
     FROM artist_snapshots s
     LEFT JOIN LATERAL (
-        SELECT subscribers, recent_videos_avg_views, recent_videos_like_ratio
+        SELECT subscribers, recent_videos_avg_views, recent_videos_avg_likes
         FROM youtube_snapshots y
         WHERE y.artist_id = s.artist_id AND y.date <= s.date
         ORDER BY y.date DESC LIMIT 1
